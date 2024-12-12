@@ -1,0 +1,8 @@
+services:
+    smtp-project:
+        image: ${REGISTRY}/${SERVICE_SMTP}/python:${IMAGE_TAG}
+        restart: always
+        volumes:
+            - .:/app
+        ports:
+            - "${PYTHON_PORT}:8000"
