@@ -17,11 +17,15 @@ async def send_registration_confirmation(mail_request: LinkRequest):
         """,
         subtype="html"
     )
+    
+    print(message)
+
     fm = FastMail(conf)
     try:
         await fm.send_message(message)
         return {"status": "Registration confirmation email sent"}
     except Exception as e:
+        print(str(e))
         raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
 
 @router.post("/send-password-reset/")

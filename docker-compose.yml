@@ -1,8 +1,16 @@
 services:
     smtp-project:
-        image: ${REGISTRY}/${SERVICE_SMTP}/python:${IMAGE_TAG}
-        restart: always
+        build:
+            dockerfile: Dockerfile
+        ports:
+            - "8000:8000"
         volumes:
             - .:/app
-        ports:
-            - "${PYTHON_PORT}:8000"
+        environment:
+            - PYTHONUNBUFFERED=1
+        networks:
+            - constructionAutomation
+
+networks:
+  constructionAutomation:
+    external: true
