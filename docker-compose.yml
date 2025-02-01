@@ -1,5 +1,6 @@
 services:
     smtp-project:
+        container_name: smtp_service_1
         build:
             dockerfile: Dockerfile
         ports:
