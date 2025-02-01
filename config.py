@@ -7,7 +7,7 @@ conf = ConnectionConfig(
     MAIL_STARTTLS=True,
     MAIL_SSL_TLS=False,
     MAIL_FROM="support@rebuildpro.ru",
-    MAIL_PASSWORD="gnpabcowlbnystjz",
+    MAIL_PASSWORD="yohqnuvomfsrytmk",
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=True
 )
