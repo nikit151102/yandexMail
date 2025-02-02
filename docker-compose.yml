@@ -1,17 +1,21 @@
+version: '3.8'
+
 services:
-    smtp-project:
-        container_name: smtp_service_1
-        build:
-            dockerfile: Dockerfile
-        ports:
-            - "2525:2525"
-        volumes:
-            - .:/app
-        environment:
-            - PYTHONUNBUFFERED=1
-        networks:
-            - constructionAutomation
+  smtp-project:
+    container_name: smtp_service_1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "2525:2525"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - constructionAutomation
 
 networks:
   constructionAutomation:
     external: true
+    
