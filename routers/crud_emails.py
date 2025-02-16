@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from config import conf
 import crudEmail
 from pydantic import BaseModel, EmailStr
 import schemas
-from fastapi import Depends
 from database.database_app import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -19,8 +19,12 @@ from database.database_app import get_session
 from schemas import EmailRecord, EmailRecordOut
 from models import EmailRecord 
 from pydantic import BaseModel, EmailStr
+from services.security_service import verify_credentials
+
 
 router = APIRouter()
+security = HTTPBasic()
+
 
 
 def is_valid_email(email: str) -> bool:
@@ -61,7 +65,15 @@ class EmailRecordCreate(BaseModel):
 
 # Эндпоинт для получения всех email записей
 @router.get("/", response_model=list[schemas.EmailRecordOut])
-async def get_emails(skip: int = 0, limit: int = 10, db: AsyncSession = Depends(get_session)):
+async def get_emails(
+    skip: int = 0,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_session),
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+    verify_credentials(credentials)
+    print("Request authorized!")
+
     db_emails = await crudEmail.get_emails_to_db(db=db, skip=skip, limit=limit)
     return db_emails
 
@@ -69,7 +81,14 @@ async def get_emails(skip: int = 0, limit: int = 10, db: AsyncSession = Depends(
 
 # Эндпоинт для создания email записи
 @router.post("/", response_model=schemas.EmailRecord)
-async def create_email_endpoint(email_request: EmailRecordCreate, db: AsyncSession = Depends(get_session)):
+async def create_email_endpoint(
+    email_request: EmailRecordCreate,
+    db: AsyncSession = Depends(get_session),
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+    verify_credentials(credentials)
+    print("Request authorized!")
+
     db_email = await crudEmail.add_email_to_db(
         db=db, email=email_request.email, wants_newsletter=email_request.wants_newsletter
     )
@@ -79,8 +98,13 @@ async def create_email_endpoint(email_request: EmailRecordCreate, db: AsyncSessi
 
 @router.post("/all", response_model=Union[List[EmailRecordOut], List[dict]])
 async def create_email_records(
-    file: UploadFile = File(...), db: AsyncSession = Depends(get_session)
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_session),
+    credentials: HTTPBasicCredentials = Depends(security)
 ):
+    verify_credentials(credentials)
+    print("Request authorized!")
+
     file_content = await file.read()
     emails = extract_emails_from_excel(file_content)
 
@@ -125,14 +149,29 @@ async def create_email_records(
 
 # Эндпоинт для удаления email записи
 @router.delete("/{email_id}/", response_model=schemas.EmailRecord)
-async def delete_email(email_id: UUID, db: AsyncSession = Depends(get_session)):
+async def delete_email(
+    email_id: UUID,
+    db: AsyncSession = Depends(get_session),
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+    verify_credentials(credentials)
+    print("Request authorized!")
+
     db_email = await crudEmail.delete_email_from_db(db=db, email_id=email_id)
     return db_email
 
 
 # Эндпоинт для обновления записи
 @router.put("/{email_id}/", response_model=schemas.EmailRecord)
-async def update_email(email_id: UUID, email_request: schemas.EmailRecordCreate, db: AsyncSession = Depends(get_session)):
+async def update_email(
+    email_id: UUID, 
+    email_request: schemas.EmailRecordCreate, 
+    db: AsyncSession = Depends(get_session),
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+    verify_credentials(credentials)
+    print("Request authorized!")
+
     db_email = await crudEmail.update_email_in_db(
         db=db, 
         email_id=email_id, 

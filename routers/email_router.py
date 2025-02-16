@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends,Form, WebSocket, WebSocketDisconnect
 from fastapi_mail import FastMail, MessageSchema
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
 from config import conf
 from modelsDTO.email_models import LinkRequest, TextMessageRequest
 from fastapi_mail import ConnectionConfig
@@ -7,20 +9,27 @@ import crudEmail
 import defs_send_emails
 from pydantic import BaseModel, EmailStr
 import schemas
-from fastapi import Depends
 from database.database_app import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from typing import List, Union
 import random
 import asyncio
+from services.security_service import verify_credentials
 
 
 router = APIRouter()
+security = HTTPBasic()
 
 
 @router.post("/send-registration-confirmation/")
-async def send_registration_confirmation(mail_request: LinkRequest):
+async def send_registration_confirmation(
+    mail_request: LinkRequest,
+    credentials: HTTPBasicCredentials = Depends(security)
+):    
+    verify_credentials(credentials)
+    print("Request authorized!")
+
     message = MessageSchema(
         subject="Подтверждение регистрации",
         recipients=[mail_request.email],
@@ -42,11 +51,14 @@ async def send_registration_confirmation(mail_request: LinkRequest):
         raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
 
 
-
-
-
 @router.post("/send-password-reset/")
-async def send_password_reset(mail_request: LinkRequest):
+async def send_password_reset(
+    mail_request: LinkRequest,
+    credentials: HTTPBasicCredentials = Depends(security)
+):    
+    verify_credentials(credentials)
+    print("Request authorized!")
+
     message = MessageSchema(
         subject="Сброс пароля на сервисе rebuildpro.ru",
         recipients=[mail_request.email],
@@ -69,7 +81,13 @@ async def send_password_reset(mail_request: LinkRequest):
 
 
 @router.post("/send-custom-message/")
-async def send_custom_message(request: TextMessageRequest):
+async def send_custom_message(
+    request: TextMessageRequest,
+    credentials: HTTPBasicCredentials = Depends(security)
+):    
+    verify_credentials(credentials)
+    print("Request authorized!")
+
     message = MessageSchema(
         subject=request.subject,
         recipients=[request.email],
@@ -100,7 +118,11 @@ async def send_bulk_message(
     max_interval: int = Form(...),
     emailsPerPage: int = Form(...),
     db: AsyncSession = Depends(get_session),
+    
+    credentials: HTTPBasicCredentials = Depends(security)
 ):
+    verify_credentials(credentials)
+    print("Request authorized!")
     try:
         if file:
             file_base64 = await defs_send_emails.encode_file_to_base64(file)
