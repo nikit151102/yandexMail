@@ -223,8 +223,10 @@ async def send_bulk_message_from_txt(
     file: UploadFile = File(...),
     min_interval: int = Form(...),
     max_interval: int = Form(...),
-    emailsPerPage: int = Form(...)
+    emailsPerPage: int = Form(...),
+    credentials: HTTPBasicCredentials = Depends(security)
 ):
+    verify_credentials(credentials)
     print("Запрос авторизован!")
 
     try:
