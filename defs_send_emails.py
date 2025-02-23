@@ -57,3 +57,22 @@ async def send_email_with_attachment(fm: FastMail, subject: str, message: str, f
         return str(e)
 
 
+
+async def send_email_with_attachment_from_txt(fm: FastMail, subject: str, message: str, mime_type: str, email: str):
+    """Функция для отправки email с вложением"""
+    body = f"""
+        <p>{subject}</p>
+        <p>{message}</p>
+    """
+    email_message = MessageSchema(
+        subject=subject,
+        recipients=[email],
+        body=body,
+        subtype="html",
+    )
+    try:
+        await fm.send_message(email_message)
+        return True
+    except Exception as e:
+        return str(e)
+
