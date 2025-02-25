@@ -168,18 +168,29 @@ async def send_bulk_message(
 
 
 
-
 import logging
 import random
 import asyncio
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, Form, File, UploadFile, HTTPException
 
-logging.basicConfig(
-    filename="email_sending.log",
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    encoding="utf-8"
-)
+logger = logging.getLogger("email_sender")
+logger.setLevel(logging.DEBUG)  
+
+# Обработчик для записи в файл
+file_handler = logging.FileHandler("email_sending.log", encoding="utf-8")
+file_handler.setLevel(logging.INFO) 
+file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(file_formatter)
+
+# Обработчик для вывода в консоль
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG) 
+console_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console_handler.setFormatter(console_formatter)
+
+# Добавляем обработчики к логгеру
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 async def process_bulk_emails(subject, message, emails, min_interval, max_interval, emailsPerPage):
     """Фоновая задача для отправки email."""
@@ -204,15 +215,15 @@ async def process_bulk_emails(subject, message, emails, min_interval, max_interv
         total_sent += batch_sent
         errors.extend(batch_errors)
 
-        logging.info(f"Отправлена пачка: {len(batch)} писем, Успешно: {batch_sent}, Ошибки: {len(batch_errors)}")
+        logger.info(f"Отправлена пачка: {len(batch)} писем, Успешно: {batch_sent}, Ошибки: {len(batch_errors)}")
         if batch_errors:
-            logging.error(f"Ошибки при отправке: {batch_errors}")
+            logger.error(f"Ошибки при отправке: {batch_errors}")
 
         random_interval = random.randint(min_interval, max_interval)
-        print('Случайный интервал перед следующей пачкой:', random_interval)
+        logger.debug(f"Случайный интервал перед следующей пачкой: {random_interval}")
         await asyncio.sleep(random_interval)
 
-    logging.info(f"Всего обработано писем: {len(emails)}, Успешно отправлено: {total_sent}, Ошибок: {len(errors)}")
+    logger.info(f"Всего обработано писем: {len(emails)}, Успешно отправлено: {total_sent}, Ошибок: {len(errors)}")
 
 
 @router.post("/send-emailing-messages-from-txt/")
@@ -223,12 +234,8 @@ async def send_bulk_message_from_txt(
     file: UploadFile = File(...),
     min_interval: int = Form(...),
     max_interval: int = Form(...),
-    emailsPerPage: int = Form(...),
-    credentials: HTTPBasicCredentials = Depends(security)
+    emailsPerPage: int = Form(...)
 ):
-    verify_credentials(credentials)
-    print("Запрос авторизован!")
-
     try:
         if not file.filename.endswith(".txt"):
             raise HTTPException(status_code=400, detail="Неверный формат файла. Разрешены только .txt файлы")
@@ -242,9 +249,9 @@ async def send_bulk_message_from_txt(
 
         background_tasks.add_task(process_bulk_emails, subject, message, emails, min_interval, max_interval, emailsPerPage)
 
+        logger.info("Фоновая отправка email запущена")
         return {"status": "Фоновая отправка email запущена"}
 
     except Exception as e:
-        logging.error(f"Произошла ошибка: {str(e)}")
-        print(f"Произошла ошибка: {str(e)}")
+        logger.error(f"Произошла ошибка: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при отправке писем: {str(e)}")
