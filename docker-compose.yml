@@ -15,7 +15,22 @@ services:
     networks:
       - constructionAutomation
 
+
+  db:
+    image: postgres
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - constructionAutomation
+      
 networks:
   constructionAutomation:
     external: true
     
+volumes:
+  pgdata:
