@@ -3,7 +3,7 @@ from fastapi_mail import FastMail, MessageSchema
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from config import conf
-from modelsDTO.email_models import LinkRequest, TextMessageRequest
+from modelsDTO.email_models import LinkRequest, TextMessageRequest, TextWithIdRequest
 from fastapi_mail import ConnectionConfig
 import crudEmail
 import defs_send_emails
@@ -105,8 +105,90 @@ async def send_custom_message(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
 
+@router.post("/send-test-message/")
+async def send_test_message(
+    request: TextWithIdRequest,
+    credentials: HTTPBasicCredentials = Depends(security)
+):    
+    verify_credentials(credentials)
+    print("Request authorized!")
 
+    message = MessageSchema(
+        subject=request.subject,
+        recipients=[request.email],
+        body=f"""
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); padding: 20px;">
+            <!-- Заголовок -->
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="font-size: 28px; color: #444;">Добро пожаловать в нашу рассылку!</h1>
+                <p style="font-size: 16px; color: #666;">Мы рады делиться с вами полезным контентом каждую неделю.</p>
+            </div>
 
+            <!-- Основной контент -->
+            <div style="font-size: 16px; margin-bottom: 20px; text-align: left;">
+                <p style="margin-bottom: 15px;">Приветствуем вас!</p>
+                <p style="margin-bottom: 15px;">В этом выпуске мы подготовили для вас:</p>
+                <ul style="margin-bottom: 15px; padding-left: 20px;">
+                    <li><strong style="font-weight: bold;">Советы по повышению продуктивности:</strong> Как эффективно планировать день.</li>
+                    <li><strong style="font-weight: bold;">Новости компании:</strong> Недавно мы запустили новый проект.</li>
+                    <li><strong style="font-weight: bold;">Полезные материалы:</strong> Ссылки на статьи и видео, которые помогут вам развиваться.</li>
+                </ul>
+                <p style="margin-bottom: 15px;">Если у вас есть вопросы или предложения, не стесняйтесь обращаться к нам!</p>
+            </div>
+
+            <!-- Блок с ценами -->
+            <div style="font-size: 16px; margin-bottom: 20px; text-align: left;">
+                <p style="margin-bottom: 10px;"><strong>Пакет документов за счет заведения!:</strong></p>
+                <ul style="margin-bottom: 15px; padding-left: 20px;">
+                    <li>
+                        Сопоставительная ведомость: 
+                        <span style="text-decoration: line-through; color: red;">4500₽</span> 
+                        <span style="color: green; font-weight: bold;">0₽</span>
+                    </li>
+                    <li>
+                        Акты освидетельствования скрытых работ: 
+                        <span style="text-decoration: line-through; color: red;">8500₽</span> 
+                        <span style="color: green; font-weight: bold;">0₽</span>
+                    </li>
+                    <li>
+                        Спецификация на материалы: 
+                        <span style="text-decoration: line-through; color: red;">1150₽</span> 
+                        <span style="color: green; font-weight: bold;">0₽</span>
+                    </li>
+                    <li>
+                        Ведомость объёмов работ: 
+                        <span style="text-decoration: line-through; color: red;">1150₽</span> 
+                        <span style="color: green; font-weight: bold;">0₽</span>
+                    </li>
+                    <li>
+                        Журнал работ: 
+                        <span style="text-decoration: line-through; color: red;">6700₽</span> 
+                        <span style="color: green; font-weight: bold;">0₽</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Блок отписки -->
+            <div style="text-align: center; margin-top: 20px;">
+                <p style="font-size: 16px; margin-bottom: 10px;">Если вы больше не хотите получать наши письма, вы можете отписаться:</p>
+                <a href="https://rebuildpro.ru/unsubscribe/{request.id}" style="display: inline-block; background-color: #ff5722; color: #fff; font-size: 16px; padding: 10px 20px; text-decoration: none; border-radius: 5px; transition: background-color 0.3s ease;" onmouseover="this.style.backgroundColor='#e64a19';" onmouseout="this.style.backgroundColor='#ff5722';">Отписаться от рассылки</a>
+            </div>
+
+            <!-- Подвал -->
+            <div style="margin-top: 20px; font-size: 14px; color: #777; text-align: center;">
+                Спасибо, что остаетесь с нами! <br>
+                С уважением, команда RebuildPro.
+            </div>
+        </div>
+        """,
+        subtype="html"
+    )
+    fm = FastMail(conf)
+    try:
+        await fm.send_message(message)
+        return {"status": "Custom message email sent successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
 
 
 @router.post("/send-emailing-messages/")
