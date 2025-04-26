@@ -10,21 +10,18 @@ from models import EmailRecord
 
 router = APIRouter()
 
-# Эндпоинт для подписки по UUID
 @router.post("/{email_id}/subscribe/", response_model=schemas.EmailRecordOut)
 async def subscribe_email_by_id(
     email_id: UUID,
     db: AsyncSession = Depends(get_session)
 ):
     
-    # Проверяем существование записи
     result = await db.execute(select(EmailRecord).filter(EmailRecord.id == email_id))
     db_email = result.scalar_one_or_none()
     
     if not db_email:
         raise HTTPException(status_code=404, detail="Email не найден")
-    
-    # Обновляем подписку
+
     db_email.wants_newsletter = True
     db.add(db_email)
     
@@ -37,21 +34,19 @@ async def subscribe_email_by_id(
     
     return db_email
 
-# Эндпоинт для отписки по UUID
+
 @router.post("/{email_id}/unsubscribe/", response_model=schemas.EmailRecordOut)
 async def unsubscribe_email_by_id(
     email_id: UUID,
     db: AsyncSession = Depends(get_session)
 ):
     
-    # Проверяем существование записи
     result = await db.execute(select(EmailRecord).filter(EmailRecord.id == email_id))
     db_email = result.scalar_one_or_none()
     
     if not db_email:
         raise HTTPException(status_code=404, detail="Email не найден")
     
-    # Обновляем подписку
     db_email.wants_newsletter = False
     db.add(db_email)
     
@@ -64,7 +59,6 @@ async def unsubscribe_email_by_id(
     
     return db_email
 
-# Эндпоинт для проверки статуса подписки по UUID
 @router.get("/{email_id}/subscription-status/", response_model=schemas.EmailRecordOut)
 async def check_subscription_status_by_id(
     email_id: UUID,
@@ -79,20 +73,17 @@ async def check_subscription_status_by_id(
     
     return db_email
 
-# Публичный эндпоинт для отписки по UUID (без аутентификации)
 @router.post("/public/unsubscribe/{email_id}/", response_model=schemas.EmailRecordOut)
 async def public_unsubscribe_by_id(
     email_id: UUID,
     db: AsyncSession = Depends(get_session)
 ):
-    # Проверяем существование записи
     result = await db.execute(select(EmailRecord).filter(EmailRecord.id == email_id))
     db_email = result.scalar_one_or_none()
     
     if not db_email:
         raise HTTPException(status_code=404, detail="Email не найден")
     
-    # Обновляем подписку
     db_email.wants_newsletter = False
     db.add(db_email)
     
