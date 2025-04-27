@@ -26,7 +26,6 @@ def get_mime_type(file_extension: str) -> str:
         return 'application/octet-stream'
 
 
-
 async def get_emails_from_db(db: AsyncSession):
     """Функция для извлечения всех email из базы данных"""
     try:
@@ -35,6 +34,20 @@ async def get_emails_from_db(db: AsyncSession):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching emails from DB: {str(e)}")
 
+
+async def get_subs_only_emails_from_db(db: AsyncSession, _wants_newsletter: bool):
+    """
+    Функция для извлечения email из базы данных,
+    где wants_newsletter = True.
+    """
+    try:
+        # Добавляем фильтрацию по полю wants_newsletter
+        query = select(EmailRecord).where(EmailRecord.wants_newsletter == _wants_newsletter)
+        result = await db.execute(query)
+        return result.scalars().all()
+    except Exception as e:
+        # Ловим ошибки базы данных и возвращаем 500 ошибку
+        raise HTTPException(status_code=500, detail=f"Error fetching emails from DB: {str(e)}")
 
 
 async def send_email_with_attachment(fm: FastMail, subject: str, message: str, file_base64: str, mime_type: str, email: str):
@@ -55,7 +68,6 @@ async def send_email_with_attachment(fm: FastMail, subject: str, message: str, f
         return True
     except Exception as e:
         return str(e)
-
 
 
 async def send_email_with_attachment_from_txt(fm: FastMail, subject: str, message: str, mime_type: str, email: str):

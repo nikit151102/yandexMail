@@ -16,6 +16,7 @@ from typing import List, Union
 import random
 import asyncio
 from services.security_service import verify_credentials
+from services.templates_service import get_promo_template_zero_prices
 
 
 router = APIRouter()
@@ -113,74 +114,12 @@ async def send_test_message(
     verify_credentials(credentials)
     print("Request authorized!")
 
+    _subj, _body = get_promo_template_zero_prices(request.id)
+
     message = MessageSchema(
-        subject=request.subject,
+        subject=_subj,
         recipients=[request.email],
-        body=f"""
-        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); padding: 20px;">
-            <!-- Заголовок -->
-            <div style="text-align: center; margin-bottom: 20px;">
-                <h1 style="font-size: 28px; color: #444;">Добро пожаловать в нашу рассылку!</h1>
-                <p style="font-size: 16px; color: #666;">Мы рады делиться с вами полезным контентом каждую неделю.</p>
-            </div>
-
-            <!-- Основной контент -->
-            <div style="font-size: 16px; margin-bottom: 20px; text-align: left;">
-                <p style="margin-bottom: 15px;">Приветствуем вас!</p>
-                <p style="margin-bottom: 15px;">В этом выпуске мы подготовили для вас:</p>
-                <ul style="margin-bottom: 15px; padding-left: 20px;">
-                    <li><strong style="font-weight: bold;">Советы по повышению продуктивности:</strong> Как эффективно планировать день.</li>
-                    <li><strong style="font-weight: bold;">Новости компании:</strong> Недавно мы запустили новый проект.</li>
-                    <li><strong style="font-weight: bold;">Полезные материалы:</strong> Ссылки на статьи и видео, которые помогут вам развиваться.</li>
-                </ul>
-                <p style="margin-bottom: 15px;">Если у вас есть вопросы или предложения, не стесняйтесь обращаться к нам!</p>
-            </div>
-
-            <!-- Блок с ценами -->
-            <div style="font-size: 16px; margin-bottom: 20px; text-align: left;">
-                <p style="margin-bottom: 10px;"><strong>Пакет документов за счет заведения!:</strong></p>
-                <ul style="margin-bottom: 15px; padding-left: 20px;">
-                    <li>
-                        Сопоставительная ведомость: 
-                        <span style="text-decoration: line-through; color: red;">4500₽</span> 
-                        <span style="color: green; font-weight: bold;">0₽</span>
-                    </li>
-                    <li>
-                        Акты освидетельствования скрытых работ: 
-                        <span style="text-decoration: line-through; color: red;">8500₽</span> 
-                        <span style="color: green; font-weight: bold;">0₽</span>
-                    </li>
-                    <li>
-                        Спецификация на материалы: 
-                        <span style="text-decoration: line-through; color: red;">1150₽</span> 
-                        <span style="color: green; font-weight: bold;">0₽</span>
-                    </li>
-                    <li>
-                        Ведомость объёмов работ: 
-                        <span style="text-decoration: line-through; color: red;">1150₽</span> 
-                        <span style="color: green; font-weight: bold;">0₽</span>
-                    </li>
-                    <li>
-                        Журнал работ: 
-                        <span style="text-decoration: line-through; color: red;">6700₽</span> 
-                        <span style="color: green; font-weight: bold;">0₽</span>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Блок отписки -->
-            <div style="text-align: center; margin-top: 20px;">
-                <p style="font-size: 16px; margin-bottom: 10px;">Если вы больше не хотите получать наши письма, вы можете отписаться:</p>
-                <a href="https://rebuildpro.ru/unsubscribe/{request.id}" style="display: inline-block; background-color: #ff5722; color: #fff; font-size: 16px; padding: 10px 20px; text-decoration: none; border-radius: 5px; transition: background-color 0.3s ease;" onmouseover="this.style.backgroundColor='#e64a19';" onmouseout="this.style.backgroundColor='#ff5722';">Отписаться от рассылки</a>
-            </div>
-
-            <!-- Подвал -->
-            <div style="margin-top: 20px; font-size: 14px; color: #777; text-align: center;">
-                Спасибо, что остаетесь с нами! <br>
-                С уважением, команда RebuildPro.
-            </div>
-        </div>
-        """,
+        body=_body,
         subtype="html"
     )
     fm = FastMail(conf)
@@ -189,6 +128,58 @@ async def send_test_message(
         return {"status": "Custom message email sent successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
+
+@router.post("/send-only-subs-emailing-messages/")
+async def send_only_subs_bulk_message(
+    # subject: str = Form(...),
+    # message: str = Form(...),
+    # file: Union[UploadFile, None] = File(None),
+    min_interval: int = Form(...),
+    max_interval: int = Form(...),
+    emailsPerPage: int = Form(...),
+    db: AsyncSession = Depends(get_session),
+    
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+    '''Отправка промо-сообщений только подписанным почтам'''
+    verify_credentials(credentials)
+    print("Request authorized!")
+    try:
+        emails = await defs_send_emails.get_subs_only_emails_from_db(db, True)
+
+        if not emails:
+            raise HTTPException(status_code=404, detail="No emails found in the database")
+
+        await db.close()
+
+        fm = FastMail(conf)
+        errors = []
+        
+        email_batches = [emails[i:i + emailsPerPage] for i in range(0, len(emails), emailsPerPage)]
+
+        for batch in email_batches:
+            for email in batch:
+                # Получить Предмет и Тело письма по шаблону
+                _subj, _body = get_promo_template_zero_prices(email.id)
+
+                result = await defs_send_emails.send_email_with_attachment(
+                    fm, _subj, _body, None, None, email.email
+                )
+                if result is not True:
+                    errors.append({"email": email, "error": result})
+
+            random_interval = random.randint(min_interval, max_interval)
+            print('random_interval', random_interval)
+            await asyncio.sleep(random_interval) 
+
+        if errors:
+            return {"status": "Partially completed", "errors": errors}
+
+        return {"status": "Emails sent successfully"}
+
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error sending emails: {str(e)}")
 
 
 @router.post("/send-emailing-messages/")
