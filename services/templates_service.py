@@ -86,7 +86,7 @@ def get_promo_template_zero_prices(id: UUID):
                 <!-- Блок отписки -->
                 <div style="text-align: center; margin-top: 30px;">
                     <p style="font-size: 16px; color: #666; margin-bottom: 10px;">Если Вы больше не хотите получать наши письма, Вы можете отписаться:</p>
-                    <a href="https://rebuildpro.ru/api/Profile/Unsubscribe/{id}" style="display: inline-block; background-color: #ff5722; color: #fff; font-size: 16px; padding: 8px 10px; text-decoration: none; border-radius: 8px; transition: background-color 0.3s ease;" onmouseover="this.style.backgroundColor='#e64a19';" onmouseout="this.style.backgroundColor='#ff5722';">Отписаться от рассылки</a>
+                    <a href="https://rebuildpro.ru/unsubscribe/{id}" style="display: inline-block; background-color: #ff5722; color: #fff; font-size: 16px; padding: 8px 10px; text-decoration: none; border-radius: 8px; transition: background-color 0.3s ease;" onmouseover="this.style.backgroundColor='#e64a19';" onmouseout="this.style.backgroundColor='#ff5722';">Отписаться от рассылки</a>
                 </div>
 
                 <!-- Подвал -->
