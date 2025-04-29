@@ -147,6 +147,61 @@ async def create_email_records(
     return [EmailRecordOut.from_orm(record) for record in email_records]
 
 
+@router.post("/all/txt", response_model=Union[List[EmailRecordOut], List[dict]])
+async def create_email_records_from_txt(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_session),
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+
+    verify_credentials(credentials)
+
+    file_content = (await file.read()).decode("utf-8")
+    emails = []
+    
+    for line in file_content.splitlines():
+        line = line.strip()
+        if line and re.match(r"[^@]+@[^@]+\.[^@]+", line): 
+            emails.append(line)
+
+    if not emails:
+        raise HTTPException(
+            status_code=400, detail="Файл не содержит валидных email адресов"
+        )
+
+    email_records = []
+    failed_records = []
+
+    for email in emails:
+        try:
+            existing_email = await db.execute(
+                select(EmailRecord).filter(EmailRecord.email == email)
+            )
+            if existing_email.scalar():
+                failed_records.append({"email": email, "error": "Email уже существует"})
+                continue
+
+            db_record = EmailRecord(
+                email=email, date=datetime.utcnow(), wants_newsletter=True
+            )
+            db.add(db_record)
+            email_records.append(db_record)
+        except Exception as e:
+            failed_records.append({"email": email, "error": str(e)})
+
+    try:
+        await db.commit()
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка сохранения в БД: {str(e)}")
+    finally:
+        await db.close()
+
+    if failed_records:
+        return failed_records
+
+    return [EmailRecordOut.from_orm(record) for record in email_records]
+    
 # Эндпоинт для удаления email записи
 @router.delete("/{email_id}/", response_model=schemas.EmailRecord)
 async def delete_email(
