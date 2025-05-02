@@ -53,8 +53,6 @@ async def get_subs_only_emails_from_db(db: AsyncSession, _wants_newsletter: bool
 async def send_email_with_attachment(fm: FastMail, subject: str, message: str, file_base64: str, mime_type: str, email: str):
     """Функция для отправки email с вложением"""
     body = f"""
-        <img src="data:{mime_type};base64,{file_base64}" alt="Image">
-        <p>{subject}</p>
         <p>{message}</p>
     """
     email_message = MessageSchema(
