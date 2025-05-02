@@ -17,7 +17,8 @@ import random
 import asyncio
 from services.security_service import verify_credentials
 from services.templates_service import get_promo_template_zero_prices
-
+import logging
+from datetime import datetime
 
 router = APIRouter()
 security = HTTPBasic()
@@ -129,57 +130,107 @@ async def send_test_message(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
 
+
+
 @router.post("/send-only-subs-emailing-messages/")
 async def send_only_subs_bulk_message(
-    # subject: str = Form(...),
-    # message: str = Form(...),
-    # file: Union[UploadFile, None] = File(None),
     min_interval: int = Form(...),
     max_interval: int = Form(...),
     emailsPerPage: int = Form(...),
     db: AsyncSession = Depends(get_session),
-    
     credentials: HTTPBasicCredentials = Depends(security)
 ):
     '''Отправка промо-сообщений только подписанным почтам'''
     verify_credentials(credentials)
-    print("Request authorized!")
+    
+    logging.basicConfig(
+        filename='email_sending.log',
+        level=logging.INFO,
+        format='%(asctime)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    error_logger = logging.getLogger('failed_emails')
+    error_logger.setLevel(logging.ERROR)
+    handler = logging.FileHandler('failed_emails.log')
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+    error_logger.addHandler(handler)
+    
     try:
         emails = await defs_send_emails.get_subs_only_emails_from_db(db, True)
 
         if not emails:
-            raise HTTPException(status_code=404, detail="No emails found in the database")
+            raise HTTPException(status_code=404, detail="В базе данных не найдено email-адресов")
 
         await db.close()
 
         fm = FastMail(conf)
         errors = []
+        total_success = 0
+        total_failed = 0
         
         email_batches = [emails[i:i + emailsPerPage] for i in range(0, len(emails), emailsPerPage)]
 
-        for batch in email_batches:
+        for batch_num, batch in enumerate(email_batches, 1):
+            batch_success = 0
+            batch_failed = 0
+            
             for email in batch:
-                # Получить Предмет и Тело письма по шаблону
                 _subj, _body = get_promo_template_zero_prices(email.id)
 
                 result = await defs_send_emails.send_email_with_attachment(
                     fm, _subj, _body, None, None, email.email
                 )
-                if result is not True:
-                    errors.append({"email": email, "error": result})
+                if result is True:
+                    batch_success += 1
+                    total_success += 1
+                else:
+                    batch_failed += 1
+                    total_failed += 1
+                    error_msg = f"Ошибка отправки на {email.email}: {result}"
+                    error_logger.error(error_msg) 
+                    errors.append({"email": email.email, "error": str(result)})
+
+            log_message = (
+                f"Пачка {batch_num}/{len(email_batches)}: "
+                f"Успешно: {batch_success}, Ошибки: {batch_failed}, "
+                f"Всего успешно: {total_success}, Всего ошибок: {total_failed}"
+            )
+            logging.info(log_message)
+            print(log_message)
 
             random_interval = random.randint(min_interval, max_interval)
-            print('random_interval', random_interval)
+            print('Интервал ожидания:', random_interval)
             await asyncio.sleep(random_interval) 
 
-        if errors:
-            return {"status": "Partially completed", "errors": errors}
+        final_log = (
+            f"Итоговые результаты: Всего успешно: {total_success}, "
+            f"Всего ошибок: {total_failed}, Всего писем: {len(emails)}"
+        )
+        logging.info(final_log)
+        print(final_log)
 
-        return {"status": "Emails sent successfully"}
+        if errors:
+            return {
+                "status": "Частично завершено",
+                "total_success": total_success,
+                "total_failed": total_failed,
+                "message": f"Отправлено {total_success} писем, {total_failed} с ошибками",
+            }
+
+        return {
+            "status": "Все письма успешно отправлены",
+            "total_success": total_success,
+            "total_failed": total_failed,
+            "message": f"Успешно отправлено всех {total_success} писем"
+        }
 
     except Exception as e:
-        print(f"Error occurred: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error sending emails: {str(e)}")
+        error_msg = f"Критическая ошибка: {str(e)}"
+        logging.error(error_msg)
+        error_logger.error(error_msg)
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=f"Ошибка при отправке писем: {str(e)}")
 
 
 @router.post("/send-emailing-messages/")
